@@ -1,0 +1,10 @@
+{
+    "theme_color": "#262626",
+    "background_color": "#262626",
+    "display": "fullscreen",
+    "scope": "/",
+    "start_url": "/",
+    "name": "Elm App",
+    "short_name": "ElmApp",
+    "description": "Elm app description"
+}
