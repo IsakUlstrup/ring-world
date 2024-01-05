@@ -6,6 +6,7 @@ import Html exposing (Html, main_)
 import Html.Attributes
 import Html.Events
 import Json.Decode as Decode exposing (Decoder)
+import Random
 import RingWorld as World exposing (World)
 import Svg exposing (Svg)
 import Svg.Attributes
@@ -19,6 +20,8 @@ import Svg.Events
 type Entity
     = Square Float
     | Circle Float
+    | Triangle ( Float, Float )
+    | Spawner ( Float, Float ) Entity
 
 
 viewEntity : Entity -> Svg msg
@@ -46,6 +49,20 @@ viewEntity entity =
                 ]
                 []
 
+        Triangle ( growth, maxGrowth ) ->
+            Svg.polygon
+                [ Svg.Attributes.points "0,-35 30.4,17.5 -30.4,17.5"
+                , Svg.Attributes.fill "hsl(320, 85%, 75%)"
+                , Svg.Attributes.stroke "beige"
+                , Svg.Attributes.strokeWidth "3"
+                , Svg.Attributes.strokeLinejoin "round"
+                , Svg.Attributes.transform ("translate(0, 10) scale(" ++ String.fromFloat (growth / maxGrowth) ++ ")")
+                ]
+                []
+
+        Spawner _ spawnEntity ->
+            Svg.g [ Svg.Attributes.style "opacity: 0.2" ] [ viewEntity spawnEntity ]
+
 
 
 -- LOGICSYSTEM
@@ -54,26 +71,72 @@ viewEntity entity =
 type LogicSystem
     = Movement
     | Color
+    | Spawn
+    | Growth
 
 
-runLogicSystem : Float -> Float -> Entity -> LogicSystem -> ( Float, Entity )
-runLogicSystem dt position entity system =
+runLogicSystem : Float -> Int -> Float -> Entity -> LogicSystem -> ( ( Float, Entity ), List (World.Cmd Entity) )
+runLogicSystem dt id position entity system =
     case system of
         Movement ->
             case entity of
                 Square velocity ->
-                    ( position + (dt * velocity), entity )
+                    ( ( position + (dt * velocity), entity )
+                    , []
+                    )
 
-                Circle _ ->
-                    ( position, entity )
+                _ ->
+                    ( ( position, entity )
+                    , []
+                    )
 
         Color ->
             case entity of
-                Square _ ->
-                    ( position, entity )
-
                 Circle hue ->
-                    ( position, Circle (hue + (dt * 0.02)) )
+                    ( ( position, Circle (hue + (dt * 0.02)) )
+                    , []
+                    )
+
+                _ ->
+                    ( ( position, entity )
+                    , []
+                    )
+
+        Spawn ->
+            case entity of
+                Spawner ( cd, maxCd ) spawnEntity ->
+                    if cd - dt <= 0 then
+                        ( ( position, Spawner ( maxCd, maxCd ) spawnEntity )
+                        , [ World.addEntityRandomPosCmd (Random.float (position - 200) (position + 200)) spawnEntity ]
+                        )
+
+                    else
+                        ( ( position, Spawner ( max 0 (cd - dt), maxCd ) spawnEntity )
+                        , []
+                        )
+
+                _ ->
+                    ( ( position, entity )
+                    , []
+                    )
+
+        Growth ->
+            case entity of
+                Triangle ( growth, maxGrowth ) ->
+                    if growth + dt >= maxGrowth then
+                        ( ( position, entity )
+                        , [ World.removeEntityCmd id ]
+                        )
+
+                    else
+                        ( ( position, Triangle ( growth + dt |> min maxGrowth, maxGrowth ) )
+                        , []
+                        )
+
+                _ ->
+                    ( ( position, entity )
+                    , []
+                    )
 
 
 
@@ -89,12 +152,14 @@ runRenderSystem : Float -> Entity -> RenderSystem -> Svg msg
 runRenderSystem position entity system =
     case system of
         Debug ->
-            Svg.text_
-                [ Svg.Attributes.textAnchor "middle"
-                , Svg.Attributes.fill "beige"
-                , Svg.Attributes.transform "translate(0, 50)"
+            Svg.g []
+                [ Svg.text_
+                    [ Svg.Attributes.textAnchor "middle"
+                    , Svg.Attributes.fill "beige"
+                    , Svg.Attributes.transform "translate(0, 50)"
+                    ]
+                    [ Svg.text ("pos: " ++ prettyFloat position) ]
                 ]
-                [ Svg.text ("pos: " ++ prettyFloat position) ]
 
         Shape ->
             viewEntity entity
@@ -111,15 +176,18 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( World.empty
-        |> World.addRenderSystem Debug
+        -- |> World.addRenderSystem Debug
         |> World.addRenderSystem Shape
         |> World.addLogicSystem Movement
         |> World.addLogicSystem Color
+        |> World.addLogicSystem Spawn
+        |> World.addLogicSystem Growth
         |> World.addEntity 0 (Square 0.07)
         |> World.addEntity 100 (Circle 0)
         |> World.addEntity 200 (Square -0.05)
         |> World.addEntity 800 (Square 0.1)
         |> World.addEntity 900 (Circle 120)
+        |> World.addEntity 500 (Spawner ( 1000, 1000 ) (Triangle ( 0, 5000 )))
     , Cmd.none
     )
 

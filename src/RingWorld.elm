@@ -1,6 +1,8 @@
 module RingWorld exposing
-    ( World
+    ( Cmd
+    , World
     , addEntity
+    , addEntityRandomPosCmd
     , addLogicSystem
     , addRenderSystem
     , camera
@@ -8,13 +10,14 @@ module RingWorld exposing
     , getCameraPosition
     , mapSize
     , moveCamera
+    , removeEntityCmd
     , runLogicSystems
     , runRenderSystems
     , setCameraPos
     )
 
 import Dict exposing (Dict)
-import Random exposing (Seed)
+import Random exposing (Generator, Seed)
 import Svg exposing (Svg)
 import Svg.Attributes
 import Svg.Keyed
@@ -30,6 +33,21 @@ type World a b c
         , mapSize : Float
         , cameraPosition : Float
         }
+
+
+type Cmd a
+    = AddEntityRandomPos (Generator Float) a
+    | RemoveEntity Int
+
+
+addEntityRandomPosCmd : Generator Float -> a -> Cmd a
+addEntityRandomPosCmd generator data =
+    AddEntityRandomPos generator data
+
+
+removeEntityCmd : Int -> Cmd a
+removeEntityCmd id =
+    RemoveEntity id
 
 
 empty : World a b c
@@ -61,6 +79,11 @@ addEntity position entity (World world) =
             | entities = Dict.insert world.idCounter ( clampPosition (World world) position, entity ) world.entities
             , idCounter = world.idCounter + 1
         }
+
+
+removeEntity : Int -> World a b c -> World a b c
+removeEntity id (World world) =
+    World { world | entities = Dict.remove id world.entities }
 
 
 
@@ -185,21 +208,64 @@ addLogicSystem system (World world) =
         }
 
 
-runLogicSystem : (Float -> a -> b -> ( Float, a )) -> b -> World a b c -> World a b c
+runGenerator : Generator x -> World a b c -> ( x, World a b c )
+runGenerator generator (World world) =
+    let
+        ( value, newSeed ) =
+            Random.step generator world.seed
+    in
+    ( value, World { world | seed = newSeed } )
+
+
+applyCommand : Cmd a -> World a b c -> World a b c
+applyCommand cmd world =
+    case cmd of
+        AddEntityRandomPos posGenerator data ->
+            let
+                ( generatedPos, newWorld ) =
+                    runGenerator posGenerator world
+            in
+            addEntity generatedPos data newWorld
+
+        RemoveEntity id ->
+            removeEntity id world
+
+
+applyCommands : List (Cmd a) -> World a b c -> World a b c
+applyCommands cmds world =
+    List.foldl applyCommand world cmds
+
+
+runLogicSystem : (Int -> Float -> a -> b -> ( ( Float, a ), List (Cmd a) )) -> b -> World a b c -> World a b c
 runLogicSystem runSystem system (World world) =
-    World
-        { world
-            | entities =
-                Dict.map
-                    (\_ ( pos, data ) ->
-                        runSystem pos data system
-                            |> Tuple.mapFirst (clampPosition (World world))
-                    )
-                    world.entities
-        }
+    let
+        ( entities, commands ) =
+            Dict.foldl addAge ( Dict.empty, [] ) world.entities
+
+        addAge : Int -> ( Float, a ) -> ( Dict Int ( Float, a ), List (Cmd a) ) -> ( Dict Int ( Float, a ), List (Cmd a) )
+        addAge id ( pos, data ) ( entityAcc, cmdAcc ) =
+            let
+                ( e, cmd ) =
+                    runSystem id pos data system
+            in
+            ( Dict.insert id (e |> Tuple.mapFirst (clampPosition (World world))) entityAcc
+            , cmd ++ cmdAcc
+            )
+    in
+    -- World
+    --     { world
+    --         | entities =
+    --             Dict.map
+    --                 (\_ ( pos, data ) ->
+    --                     runSystem pos data system
+    --                         |> Tuple.mapFirst (clampPosition (World world))
+    --                 )
+    --                 world.entities
+    --     }
+    World { world | entities = entities } |> applyCommands commands
 
 
-runLogicSystems : (Float -> a -> b -> ( Float, a )) -> World a b c -> World a b c
+runLogicSystems : (Int -> Float -> a -> b -> ( ( Float, a ), List (Cmd a) )) -> World a b c -> World a b c
 runLogicSystems runSystem (World world) =
     List.foldl (runLogicSystem runSystem)
         (World world)
