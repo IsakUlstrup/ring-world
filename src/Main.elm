@@ -19,7 +19,6 @@ import Svg.Events
 
 type Entity
     = Square Float
-    | Circle Float
     | Triangle ( Float, Float )
     | Spawner ( Float, Float ) Entity
 
@@ -37,15 +36,6 @@ viewEntity entity =
                 , Svg.Attributes.stroke "beige"
                 , Svg.Attributes.strokeWidth "3"
                 , Svg.Attributes.strokeLinejoin "round"
-                ]
-                []
-
-        Circle hue ->
-            Svg.circle
-                [ Svg.Attributes.r "25"
-                , Svg.Attributes.fill ("hsl(" ++ String.fromFloat hue ++ ",85%,75%)")
-                , Svg.Attributes.stroke "beige"
-                , Svg.Attributes.strokeWidth "3"
                 ]
                 []
 
@@ -70,7 +60,6 @@ viewEntity entity =
 
 type LogicSystem
     = Movement
-    | Color
     | Spawn
     | Growth
 
@@ -82,18 +71,6 @@ runLogicSystem dt id position entity system =
             case entity of
                 Square velocity ->
                     ( ( position + (dt * velocity), entity )
-                    , []
-                    )
-
-                _ ->
-                    ( ( position, entity )
-                    , []
-                    )
-
-        Color ->
-            case entity of
-                Circle hue ->
-                    ( ( position, Circle (hue + (dt * 0.02)) )
                     , []
                     )
 
@@ -179,14 +156,11 @@ init _ =
         -- |> World.addRenderSystem Debug
         |> World.addRenderSystem Shape
         |> World.addLogicSystem Movement
-        |> World.addLogicSystem Color
         |> World.addLogicSystem Spawn
         |> World.addLogicSystem Growth
         |> World.addEntity 0 (Square 0.07)
-        |> World.addEntity 100 (Circle 0)
         |> World.addEntity 200 (Square -0.05)
         |> World.addEntity 800 (Square 0.1)
-        |> World.addEntity 900 (Circle 120)
         |> World.addEntity 500 (Spawner ( 1000, 1000 ) (Triangle ( 0, 5000 )))
     , Cmd.none
     )
