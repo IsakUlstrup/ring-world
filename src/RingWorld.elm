@@ -13,6 +13,7 @@ module RingWorld exposing
     , mapSize
     , moveCamera
     , relativeDistance
+    , removeEntity
     , runLogicSystems
     , runRenderSystems
     , setCameraPos
@@ -97,10 +98,12 @@ getEntitiesRange position radius (World world) =
     world.entities |> Dict.filter isInRange
 
 
+removeEntity : Int -> World a b c -> World a b c
+removeEntity id (World world) =
+    World { world | entities = Dict.remove id world.entities }
 
--- removeEntity : Int -> World a b c -> World a b c
--- removeEntity id (World world) =
---     World { world | entities = Dict.remove id world.entities }
+
+
 -- RENDER
 
 
@@ -172,7 +175,7 @@ systemIsEnabled ( _, ( enabled, _ ) ) =
     enabled
 
 
-runRenderSystems : Float -> (Float -> a -> c -> Svg msg) -> World a b c -> Svg msg
+runRenderSystems : Float -> (Int -> Float -> a -> c -> Svg msg) -> World a b c -> Svg msg
 runRenderSystems renderRadius runSystem (World world) =
     let
         isInRange : Float -> ( Int, ( Float, a ) ) -> Bool
@@ -186,7 +189,7 @@ runRenderSystems renderRadius runSystem (World world) =
                 , Svg.Attributes.transform ("translate(" ++ String.fromFloat (relativeDistance world.cameraPosition pos world.mapSize) ++ ", 0)")
                 ]
                 [ ( String.fromInt id
-                  , runSystem pos entity system
+                  , runSystem id pos entity system
                   )
                 ]
 

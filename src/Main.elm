@@ -57,8 +57,8 @@ variantEq e1 e2 =
                     False
 
 
-viewEntity : Entity -> Svg msg
-viewEntity entity =
+viewEntity : Int -> Entity -> Svg Msg
+viewEntity id entity =
     case entity of
         Square _ ->
             Svg.rect
@@ -81,11 +81,12 @@ viewEntity entity =
                 , Svg.Attributes.strokeWidth "3"
                 , Svg.Attributes.strokeLinejoin "round"
                 , Svg.Attributes.transform ("translate(0, 10) scale(" ++ String.fromFloat (growth / maxGrowth) ++ ")")
+                , Svg.Events.onClick (ClickedEntity id entity)
                 ]
                 []
 
-        Spawner _ spawnEntity ->
-            Svg.g [ Svg.Attributes.style "opacity: 0.2" ] [ viewEntity spawnEntity ]
+        Spawner _ _ ->
+            Svg.g [] []
 
 
 
@@ -197,8 +198,8 @@ type RenderSystem
     | Shape
 
 
-runRenderSystem : Float -> Entity -> RenderSystem -> Svg msg
-runRenderSystem position entity system =
+runRenderSystem : Int -> Float -> Entity -> RenderSystem -> Svg Msg
+runRenderSystem id position entity system =
     case system of
         Debug ->
             Svg.g []
@@ -211,7 +212,7 @@ runRenderSystem position entity system =
                 ]
 
         Shape ->
-            viewEntity entity
+            viewEntity id entity
 
 
 
@@ -247,6 +248,7 @@ type Msg
     = ClickedMoveCamera Float
     | SetCameraPosition Float
     | Tick Float
+    | ClickedEntity Int Entity
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -260,6 +262,14 @@ update msg model =
 
         SetCameraPosition pos ->
             ( model |> World.setCameraPos pos, Cmd.none )
+
+        ClickedEntity id entity ->
+            case entity of
+                Triangle _ ->
+                    ( model |> World.removeEntity id, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
 
 
 
