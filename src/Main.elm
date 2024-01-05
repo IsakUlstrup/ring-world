@@ -1,7 +1,8 @@
-module Main exposing (Model, Msg, main)
+module Main exposing (Model, Msg, main, test)
 
 import Browser
 import Browser.Events
+import Dict
 import Html exposing (Html, main_)
 import Html.Attributes
 import Html.Events
@@ -21,6 +22,39 @@ type Entity
     = Square Float
     | Triangle ( Float, Float )
     | Spawner ( Float, Float ) Entity
+
+
+test : Bool
+test =
+    variantEq (Square 100) (Square 50)
+
+
+variantEq : Entity -> Entity -> Bool
+variantEq e1 e2 =
+    case e1 of
+        Square _ ->
+            case e2 of
+                Square _ ->
+                    True
+
+                _ ->
+                    False
+
+        Triangle _ ->
+            case e2 of
+                Triangle _ ->
+                    True
+
+                _ ->
+                    False
+
+        Spawner _ _ ->
+            case e2 of
+                Spawner _ _ ->
+                    True
+
+                _ ->
+                    False
 
 
 viewEntity : Entity -> Svg msg
@@ -64,56 +98,94 @@ type LogicSystem
     | Growth
 
 
-runLogicSystem : Float -> Int -> Float -> Entity -> LogicSystem -> ( ( Float, Entity ), List (World.Cmd Entity) )
-runLogicSystem dt id position entity system =
+moveSystem : Float -> Int -> Float -> Entity -> ( Float, Entity )
+moveSystem dt _ position entity =
+    case entity of
+        Square velocity ->
+            ( position + (dt * velocity), entity )
+
+        _ ->
+            ( position, entity )
+
+
+spawnTimer : Float -> Int -> Float -> Entity -> ( Float, Entity )
+spawnTimer dt _ position entity =
+    case entity of
+        Spawner ( cd, maxCd ) spawnEntity ->
+            ( position, Spawner ( max 0 (cd - dt), maxCd ) spawnEntity )
+
+        _ ->
+            ( position, entity )
+
+
+growthTimer : Float -> Int -> Float -> Entity -> ( Float, Entity )
+growthTimer dt _ position entity =
+    case entity of
+        Triangle ( growth, maxGrowth ) ->
+            if growth + dt >= maxGrowth then
+                ( position, entity )
+
+            else
+                ( position, Triangle ( growth + dt |> min maxGrowth, maxGrowth ) )
+
+        _ ->
+            ( position, entity )
+
+
+runLogicSystem : Float -> LogicSystem -> World Entity LogicSystem RenderSystem -> World Entity LogicSystem RenderSystem
+runLogicSystem dt system world =
     case system of
         Movement ->
-            case entity of
-                Square velocity ->
-                    ( ( position + (dt * velocity), entity )
-                    , []
-                    )
-
-                _ ->
-                    ( ( position, entity )
-                    , []
-                    )
+            World.mapEntities (moveSystem dt) world
 
         Spawn ->
-            case entity of
-                Spawner ( cd, maxCd ) spawnEntity ->
-                    if cd - dt <= 0 then
-                        ( ( position, Spawner ( maxCd, maxCd ) spawnEntity )
-                        , [ World.addEntityRandomPosCmd (Random.float (position - 200) (position + 200)) spawnEntity ]
-                        )
+            let
+                isReady w _ pos entity =
+                    case entity of
+                        Spawner ( cd, _ ) spawnEntity ->
+                            let
+                                inRange =
+                                    World.getEntitiesRange pos 200 w
+                                        |> Dict.filter (\_ ( _, data ) -> variantEq data spawnEntity)
+                                        |> Dict.size
+                            in
+                            cd <= 0 && inRange < 10
 
-                    else
-                        ( ( position, Spawner ( max 0 (cd - dt), maxCd ) spawnEntity )
-                        , []
-                        )
+                        _ ->
+                            False
 
-                _ ->
-                    ( ( position, entity )
-                    , []
-                    )
+                readyEntities w =
+                    World.getFilteredEntities (isReady w) w
+                        |> Dict.toList
+                        |> List.map Tuple.second
+
+                resetSpawnTimer _ pos entity =
+                    case entity of
+                        Spawner ( cd, maxCd ) spawnEntity ->
+                            if cd <= 0 then
+                                ( pos, Spawner ( maxCd, maxCd ) spawnEntity )
+
+                            else
+                                ( pos, entity )
+
+                        _ ->
+                            ( pos, entity )
+
+                applySpawner : ( Float, Entity ) -> World Entity LogicSystem RenderSystem -> World Entity LogicSystem RenderSystem
+                applySpawner ( pos, entity ) w =
+                    case entity of
+                        Spawner _ spawnEntity ->
+                            World.addEntityRandomPos (Random.float (pos - 200) (pos + 200)) spawnEntity w
+
+                        _ ->
+                            w
+            in
+            World.mapEntities (spawnTimer dt) world
+                |> (\w -> List.foldl applySpawner w (readyEntities w))
+                |> World.mapEntities resetSpawnTimer
 
         Growth ->
-            case entity of
-                Triangle ( growth, maxGrowth ) ->
-                    if growth + dt >= maxGrowth then
-                        ( ( position, entity )
-                        , [ World.removeEntityCmd id ]
-                        )
-
-                    else
-                        ( ( position, Triangle ( growth + dt |> min maxGrowth, maxGrowth ) )
-                        , []
-                        )
-
-                _ ->
-                    ( ( position, entity )
-                    , []
-                    )
+            World.mapEntities (growthTimer dt) world
 
 
 
@@ -162,6 +234,7 @@ init _ =
         |> World.addEntity 200 (Square -0.05)
         |> World.addEntity 800 (Square 0.1)
         |> World.addEntity 500 (Spawner ( 1000, 1000 ) (Triangle ( 0, 5000 )))
+        |> World.addEntity 500 (Triangle ( 0, 2000 ))
     , Cmd.none
     )
 

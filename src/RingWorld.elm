@@ -1,16 +1,18 @@
 module RingWorld exposing
-    ( Cmd
-    , World
+    ( World
     , addEntity
-    , addEntityRandomPosCmd
+    , addEntityRandomPos
     , addLogicSystem
     , addRenderSystem
     , camera
     , empty
     , getCameraPosition
+    , getEntitiesRange
+    , getFilteredEntities
+    , mapEntities
     , mapSize
     , moveCamera
-    , removeEntityCmd
+    , relativeDistance
     , runLogicSystems
     , runRenderSystems
     , setCameraPos
@@ -33,21 +35,6 @@ type World a b c
         , mapSize : Float
         , cameraPosition : Float
         }
-
-
-type Cmd a
-    = AddEntityRandomPos (Generator Float) a
-    | RemoveEntity Int
-
-
-addEntityRandomPosCmd : Generator Float -> a -> Cmd a
-addEntityRandomPosCmd generator data =
-    AddEntityRandomPos generator data
-
-
-removeEntityCmd : Int -> Cmd a
-removeEntityCmd id =
-    RemoveEntity id
 
 
 empty : World a b c
@@ -81,12 +68,39 @@ addEntity position entity (World world) =
         }
 
 
-removeEntity : Int -> World a b c -> World a b c
-removeEntity id (World world) =
-    World { world | entities = Dict.remove id world.entities }
+addEntityRandomPos : Generator Float -> a -> World a b c -> World a b c
+addEntityRandomPos posGenerator data world =
+    let
+        ( generatedPos, newWorld ) =
+            runGenerator posGenerator world
+    in
+    addEntity generatedPos data newWorld
+
+
+mapEntities : (Int -> Float -> a -> ( Float, a )) -> World a b c -> World a b c
+mapEntities f (World world) =
+    World { world | entities = Dict.map (\id ( pos, data ) -> f id pos data |> Tuple.mapFirst (clampPosition (World world))) world.entities }
+
+
+getFilteredEntities : (Int -> Float -> a -> Bool) -> World a b c -> Dict Int ( Float, a )
+getFilteredEntities pred (World world) =
+    world.entities |> Dict.filter (\id ( pos, data ) -> pred id pos data)
+
+
+getEntitiesRange : Float -> Float -> World a b c -> Dict Int ( Float, a )
+getEntitiesRange position radius (World world) =
+    let
+        isInRange : Int -> ( Float, a ) -> Bool
+        isInRange _ ( pos, _ ) =
+            (relativeDistance position pos world.mapSize |> abs) <= radius
+    in
+    world.entities |> Dict.filter isInRange
 
 
 
+-- removeEntity : Int -> World a b c -> World a b c
+-- removeEntity id (World world) =
+--     World { world | entities = Dict.remove id world.entities }
 -- RENDER
 
 
@@ -217,57 +231,52 @@ runGenerator generator (World world) =
     ( value, World { world | seed = newSeed } )
 
 
-applyCommand : Cmd a -> World a b c -> World a b c
-applyCommand cmd world =
-    case cmd of
-        AddEntityRandomPos posGenerator data ->
-            let
-                ( generatedPos, newWorld ) =
-                    runGenerator posGenerator world
-            in
-            addEntity generatedPos data newWorld
 
-        RemoveEntity id ->
-            removeEntity id world
-
-
-applyCommands : List (Cmd a) -> World a b c -> World a b c
-applyCommands cmds world =
-    List.foldl applyCommand world cmds
-
-
-runLogicSystem : (Int -> Float -> a -> b -> ( ( Float, a ), List (Cmd a) )) -> b -> World a b c -> World a b c
-runLogicSystem runSystem system (World world) =
-    let
-        ( entities, commands ) =
-            Dict.foldl addAge ( Dict.empty, [] ) world.entities
-
-        addAge : Int -> ( Float, a ) -> ( Dict Int ( Float, a ), List (Cmd a) ) -> ( Dict Int ( Float, a ), List (Cmd a) )
-        addAge id ( pos, data ) ( entityAcc, cmdAcc ) =
-            let
-                ( e, cmd ) =
-                    runSystem id pos data system
-            in
-            ( Dict.insert id (e |> Tuple.mapFirst (clampPosition (World world))) entityAcc
-            , cmd ++ cmdAcc
-            )
-    in
-    -- World
-    --     { world
-    --         | entities =
-    --             Dict.map
-    --                 (\_ ( pos, data ) ->
-    --                     runSystem pos data system
-    --                         |> Tuple.mapFirst (clampPosition (World world))
-    --                 )
-    --                 world.entities
-    --     }
-    World { world | entities = entities } |> applyCommands commands
+-- applyCommand : Cmd a -> World a b c -> World a b c
+-- applyCommand cmd world =
+--     case cmd of
+--         AddEntityRandomPos posGenerator data ->
+--             let
+--                 ( generatedPos, newWorld ) =
+--                     runGenerator posGenerator world
+--             in
+--             addEntity generatedPos data newWorld
+--         RemoveEntity id ->
+--             removeEntity id world
+-- applyCommands : List (Cmd a) -> World a b c -> World a b c
+-- applyCommands cmds world =
+--     List.foldl applyCommand world cmds
+-- runLogicSystem : (Int -> Float -> a -> b -> ( ( Float, a ), List (Cmd a) )) -> b -> World a b c -> World a b c
+-- runLogicSystem runSystem system (World world) =
+--     let
+--         ( entities, commands ) =
+--             Dict.foldl addAge ( Dict.empty, [] ) world.entities
+--         addAge : Int -> ( Float, a ) -> ( Dict Int ( Float, a ), List (Cmd a) ) -> ( Dict Int ( Float, a ), List (Cmd a) )
+--         addAge id ( pos, data ) ( entityAcc, cmdAcc ) =
+--             let
+--                 ( e, cmd ) =
+--                     runSystem id pos data system
+--             in
+--             ( Dict.insert id (e |> Tuple.mapFirst (clampPosition (World world))) entityAcc
+--             , cmd ++ cmdAcc
+--             )
+--     in
+--     -- World
+--     --     { world
+--     --         | entities =
+--     --             Dict.map
+--     --                 (\_ ( pos, data ) ->
+--     --                     runSystem pos data system
+--     --                         |> Tuple.mapFirst (clampPosition (World world))
+--     --                 )
+--     --                 world.entities
+--     --     }
+--     World { world | entities = entities } |> applyCommands commands
 
 
-runLogicSystems : (Int -> Float -> a -> b -> ( ( Float, a ), List (Cmd a) )) -> World a b c -> World a b c
+runLogicSystems : (b -> World a b c -> World a b c) -> World a b c -> World a b c
 runLogicSystems runSystem (World world) =
-    List.foldl (runLogicSystem runSystem)
+    List.foldl runSystem
         (World world)
         (Dict.toList world.logicSystems
             |> List.filter systemIsEnabled
