@@ -1,4 +1,4 @@
-module Main exposing (Model, Msg, main, test)
+module Main exposing (Model, Msg, main)
 
 import Browser
 import Browser.Events
@@ -22,11 +22,6 @@ type Entity
     = Square Float
     | Triangle ( Float, Float )
     | Spawner ( Float, Float ) Entity
-
-
-test : Bool
-test =
-    variantEq (Square 100) (Square 50)
 
 
 variantEq : Entity -> Entity -> Bool
@@ -94,34 +89,26 @@ viewEntity id entity =
 
 
 type LogicSystem
-    = Movement
-    | Spawn
-    | Growth
+    = Spawn
+    | Time
+    | AI
 
 
-moveSystem : Float -> Int -> Float -> Entity -> ( Float, Entity )
-moveSystem dt _ position entity =
+entitiesInRange : Float -> Entity -> World Entity b c -> Dict.Dict Int ( Float, Entity )
+entitiesInRange pos entity world =
+    World.getEntitiesRange pos 200 world
+        |> Dict.filter (\_ ( _, data ) -> variantEq data entity)
+
+
+timeSystem : Float -> Int -> Float -> Entity -> ( Float, Entity )
+timeSystem dt _ position entity =
     case entity of
         Square velocity ->
             ( position + (dt * velocity), entity )
 
-        _ ->
-            ( position, entity )
-
-
-spawnTimer : Float -> Int -> Float -> Entity -> ( Float, Entity )
-spawnTimer dt _ position entity =
-    case entity of
         Spawner ( cd, maxCd ) spawnEntity ->
             ( position, Spawner ( max 0 (cd - dt), maxCd ) spawnEntity )
 
-        _ ->
-            ( position, entity )
-
-
-growthTimer : Float -> Int -> Float -> Entity -> ( Float, Entity )
-growthTimer dt _ position entity =
-    case entity of
         Triangle ( growth, maxGrowth ) ->
             if growth + dt >= maxGrowth then
                 ( position, entity )
@@ -129,64 +116,74 @@ growthTimer dt _ position entity =
             else
                 ( position, Triangle ( growth + dt |> min maxGrowth, maxGrowth ) )
 
-        _ ->
-            ( position, entity )
+
+spawnSystem : World Entity LogicSystem RenderSystem -> World Entity LogicSystem RenderSystem
+spawnSystem world =
+    let
+        resetSpawnTimer : Int -> Float -> Entity -> ( Float, Entity )
+        resetSpawnTimer _ pos entity =
+            case entity of
+                Spawner ( cd, maxCd ) spawnEntity ->
+                    if cd <= 0 then
+                        ( pos, Spawner ( maxCd, maxCd ) spawnEntity )
+
+                    else
+                        ( pos, entity )
+
+                _ ->
+                    ( pos, entity )
+
+        applySpawner : ( Float, Entity ) -> World Entity LogicSystem RenderSystem -> World Entity LogicSystem RenderSystem
+        applySpawner ( pos, entity ) w =
+            case entity of
+                Spawner ( cd, _ ) spawnEntity ->
+                    if cd <= 0 && (entitiesInRange pos spawnEntity w |> Dict.size) < 10 then
+                        World.addEntityRandomPos (Random.float (pos - 200) (pos + 200)) spawnEntity w
+
+                    else
+                        w
+
+                _ ->
+                    w
+    in
+    (World.getEntities world |> Dict.toList |> List.map Tuple.second)
+        |> List.foldl applySpawner world
+        |> World.mapEntities resetSpawnTimer
 
 
 runLogicSystem : Float -> LogicSystem -> World Entity LogicSystem RenderSystem -> World Entity LogicSystem RenderSystem
 runLogicSystem dt system world =
     case system of
-        Movement ->
-            World.mapEntities (moveSystem dt) world
-
         Spawn ->
+            spawnSystem world
+
+        Time ->
+            World.mapEntities (timeSystem dt) world
+
+        AI ->
             let
-                isReady w _ pos entity =
+                aiSystem : Int -> Float -> Entity -> ( Float, Entity )
+                aiSystem _ position entity =
                     case entity of
-                        Spawner ( cd, _ ) spawnEntity ->
+                        Square _ ->
                             let
-                                inRange =
-                                    World.getEntitiesRange pos 200 w
-                                        |> Dict.filter (\_ ( _, data ) -> variantEq data spawnEntity)
-                                        |> Dict.size
+                                trianglesInRange =
+                                    entitiesInRange position (Triangle ( 0, 0 )) world
+                                        |> Dict.toList
+                                        |> List.map Tuple.second
+                                        |> List.head
                             in
-                            cd <= 0 && inRange < 10
+                            case trianglesInRange of
+                                Just ( pos, _ ) ->
+                                    ( position, Square ((pos - position) * 0.001) )
+
+                                Nothing ->
+                                    ( position, entity )
 
                         _ ->
-                            False
-
-                readyEntities w =
-                    World.getFilteredEntities (isReady w) w
-                        |> Dict.toList
-                        |> List.map Tuple.second
-
-                resetSpawnTimer _ pos entity =
-                    case entity of
-                        Spawner ( cd, maxCd ) spawnEntity ->
-                            if cd <= 0 then
-                                ( pos, Spawner ( maxCd, maxCd ) spawnEntity )
-
-                            else
-                                ( pos, entity )
-
-                        _ ->
-                            ( pos, entity )
-
-                applySpawner : ( Float, Entity ) -> World Entity LogicSystem RenderSystem -> World Entity LogicSystem RenderSystem
-                applySpawner ( pos, entity ) w =
-                    case entity of
-                        Spawner _ spawnEntity ->
-                            World.addEntityRandomPos (Random.float (pos - 200) (pos + 200)) spawnEntity w
-
-                        _ ->
-                            w
+                            ( position, entity )
             in
-            World.mapEntities (spawnTimer dt) world
-                |> (\w -> List.foldl applySpawner w (readyEntities w))
-                |> World.mapEntities resetSpawnTimer
-
-        Growth ->
-            World.mapEntities (growthTimer dt) world
+            World.mapEntities aiSystem world
 
 
 
@@ -228,13 +225,13 @@ init _ =
     ( World.empty
         -- |> World.addRenderSystem Debug
         |> World.addRenderSystem Shape
-        |> World.addLogicSystem Movement
+        |> World.addLogicSystem Time
         |> World.addLogicSystem Spawn
-        |> World.addLogicSystem Growth
+        |> World.addLogicSystem AI
         |> World.addEntity 0 (Square 0.07)
         |> World.addEntity 200 (Square -0.05)
         |> World.addEntity 800 (Square 0.1)
-        |> World.addEntity 500 (Spawner ( 1000, 1000 ) (Triangle ( 0, 5000 )))
+        |> World.addEntity 500 (Spawner ( 4000, 4000 ) (Triangle ( 0, 5000 )))
         |> World.addEntity 500 (Triangle ( 0, 2000 ))
     , Cmd.none
     )

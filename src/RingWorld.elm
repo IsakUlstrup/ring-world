@@ -7,8 +7,8 @@ module RingWorld exposing
     , camera
     , empty
     , getCameraPosition
+    , getEntities
     , getEntitiesRange
-    , getFilteredEntities
     , mapEntities
     , mapSize
     , moveCamera
@@ -83,9 +83,9 @@ mapEntities f (World world) =
     World { world | entities = Dict.map (\id ( pos, data ) -> f id pos data |> Tuple.mapFirst (clampPosition (World world))) world.entities }
 
 
-getFilteredEntities : (Int -> Float -> a -> Bool) -> World a b c -> Dict Int ( Float, a )
-getFilteredEntities pred (World world) =
-    world.entities |> Dict.filter (\id ( pos, data ) -> pred id pos data)
+getEntities : World a b c -> Dict Int ( Float, a )
+getEntities (World world) =
+    world.entities
 
 
 getEntitiesRange : Float -> Float -> World a b c -> Dict Int ( Float, a )
