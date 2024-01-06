@@ -22,6 +22,7 @@ type Entity
     = Square Float Float
     | Triangle ( Float, Float )
     | Spawner ( Float, Float ) Entity
+    | Player
 
 
 variantEq : Entity -> Entity -> Bool
@@ -46,6 +47,14 @@ variantEq e1 e2 =
         Spawner _ _ ->
             case e2 of
                 Spawner _ _ ->
+                    True
+
+                _ ->
+                    False
+
+        Player ->
+            case e2 of
+                Player ->
                     True
 
                 _ ->
@@ -84,6 +93,19 @@ viewEntity id entity =
 
         Spawner _ _ ->
             Svg.g [] []
+
+        Player ->
+            Svg.circle
+                [ Svg.Attributes.r "25"
+                , Svg.Attributes.x "-25"
+                , Svg.Attributes.y "-25"
+                , Svg.Attributes.fill "hsl(220, 85%, 75%)"
+                , Svg.Attributes.stroke "beige"
+                , Svg.Attributes.strokeWidth "3"
+                , Svg.Attributes.strokeLinejoin "round"
+                , Svg.Attributes.class "player"
+                ]
+                []
 
 
 
@@ -124,6 +146,9 @@ timeSystem dt _ position entity =
 
             else
                 ( position, Triangle ( growth + dt |> min maxGrowth, maxGrowth ) )
+
+        Player ->
+            ( position, entity )
 
 
 spawnSystem : World Entity LogicSystem RenderSystem -> World Entity LogicSystem RenderSystem
@@ -336,6 +361,7 @@ view model =
             , Svg.Attributes.style ("background-position: " ++ String.fromFloat -(World.getCameraPosition model) ++ "px 0")
             ]
             [ World.runRenderSystems 600 runRenderSystem model
+            , viewEntity -1 Player
             ]
         ]
 
