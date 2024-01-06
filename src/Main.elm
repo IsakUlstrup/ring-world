@@ -173,6 +173,7 @@ runLogicSystem dt system world =
                                     entitiesInRange position (Triangle ( 0, 0 )) world
                                         |> Dict.toList
                                         |> List.map Tuple.second
+                                        |> List.sortBy (\( p, _ ) -> World.relativeDistance p position (World.mapSize world) |> abs)
                                         |> List.head
                             in
                             case trianglesInRange of
