@@ -291,9 +291,9 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( World.empty
-        |> World.addRenderSystem Position
+        -- |> World.addRenderSystem Position
         |> World.addRenderSystem Shape
-        |> World.addRenderSystem Vector
+        -- |> World.addRenderSystem Vector
         |> World.addLogicSystem Time
         |> World.addLogicSystem Spawn
         |> World.addLogicSystem AI
@@ -356,9 +356,9 @@ prettyFloat n =
 
 view : Model -> Html Msg
 view model =
-    main_ []
+    main_ [ Html.Attributes.id "app" ]
         [ Html.div
-            [ Html.Attributes.style "padding" "1rem 5rem"
+            [ Html.Attributes.class "sidebar"
             ]
             [ Html.p [ Html.Attributes.style "text-align" "center" ] [ Html.text ("Camera pos: " ++ prettyFloat (World.getCameraPosition model)) ]
             , Html.input
