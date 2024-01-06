@@ -240,14 +240,15 @@ runLogicSystem dt system world =
 
 
 type RenderSystem
-    = Debug
+    = Position
     | Shape
+    | Vector
 
 
 runRenderSystem : Int -> Float -> Entity -> RenderSystem -> Svg Msg
 runRenderSystem id position entity system =
     case system of
-        Debug ->
+        Position ->
             Svg.g []
                 [ Svg.text_
                     [ Svg.Attributes.textAnchor "middle"
@@ -256,6 +257,24 @@ runRenderSystem id position entity system =
                     ]
                     [ Svg.text ("pos: " ++ prettyFloat position) ]
                 ]
+
+        Vector ->
+            case entity of
+                Square velocity _ ->
+                    Svg.g []
+                        [ Svg.line
+                            [ Svg.Attributes.x1 (String.fromFloat 0)
+                            , Svg.Attributes.y1 "0"
+                            , Svg.Attributes.x2 (String.fromFloat (0 + (velocity * 100)))
+                            , Svg.Attributes.y2 "0"
+                            , Svg.Attributes.stroke "beige"
+                            , Svg.Attributes.strokeWidth "3"
+                            ]
+                            []
+                        ]
+
+                _ ->
+                    Svg.g [] []
 
         Shape ->
             viewEntity id entity
@@ -272,8 +291,9 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( World.empty
-        -- |> World.addRenderSystem Debug
+        |> World.addRenderSystem Position
         |> World.addRenderSystem Shape
+        |> World.addRenderSystem Vector
         |> World.addLogicSystem Time
         |> World.addLogicSystem Spawn
         |> World.addLogicSystem AI
