@@ -333,6 +333,7 @@ view model =
             , Svg.Attributes.viewBox "-500 -250 1000 500"
             , Svg.Attributes.preserveAspectRatio "xMidYMid slice"
             , Svg.Events.on "wheel" (wheelDecoder ClickedMoveCamera)
+            , Svg.Attributes.style ("background-position: " ++ String.fromFloat -(World.getCameraPosition model) ++ "px 0")
             ]
             [ World.runRenderSystems 600 runRenderSystem model
             ]
