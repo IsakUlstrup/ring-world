@@ -178,7 +178,7 @@ runLogicSystem dt system world =
                                     ( position, Square ((pos - position) * 0.001) )
 
                                 Nothing ->
-                                    ( position, entity )
+                                    ( position, Square ((World.getCameraPosition world - position) * 0.001) )
 
                         _ ->
                             ( position, entity )

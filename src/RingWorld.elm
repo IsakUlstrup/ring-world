@@ -46,7 +46,7 @@ empty =
         , renderSystems = Dict.empty
         , idCounter = 0
         , seed = Random.initialSeed 42
-        , mapSize = 1300
+        , mapSize = 2300
         , cameraPosition = 0
         }
 
