@@ -5,6 +5,7 @@ module RingWorld exposing
     , addLogicSystem
     , addRenderSystem
     , camera
+    , directionTo
     , empty
     , getCameraPosition
     , getEntities
@@ -80,7 +81,16 @@ addEntityRandomPos posGenerator data world =
 
 mapEntities : (Int -> Float -> a -> ( Float, a )) -> World a b c -> World a b c
 mapEntities f (World world) =
-    World { world | entities = Dict.map (\id ( pos, data ) -> f id pos data |> Tuple.mapFirst (clampPosition (World world))) world.entities }
+    World
+        { world
+            | entities =
+                Dict.map
+                    (\id ( pos, data ) ->
+                        f id pos data
+                            |> Tuple.mapFirst (clampPosition (World world))
+                    )
+                    world.entities
+        }
 
 
 getEntities : World a b c -> Dict Int ( Float, a )
@@ -168,6 +178,23 @@ relativeDistance startPosition endPosition circleSize =
 
     else
         -(circleSize - relativeDist)
+
+
+directionTo : Float -> Float -> Float -> Float
+directionTo startPosition endPosition circleSize =
+    let
+        relativeDist =
+            if startPosition <= endPosition then
+                endPosition - startPosition
+
+            else
+                circleSize - startPosition + endPosition
+    in
+    if relativeDist <= circleSize / 2.0 then
+        1
+
+    else
+        -1
 
 
 systemIsEnabled : ( Int, ( Bool, a ) ) -> Bool

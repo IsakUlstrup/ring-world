@@ -19,7 +19,7 @@ import Svg.Events
 
 
 type Entity
-    = Square Float
+    = Square Float Float
     | Triangle ( Float, Float )
     | Spawner ( Float, Float ) Entity
 
@@ -27,9 +27,9 @@ type Entity
 variantEq : Entity -> Entity -> Bool
 variantEq e1 e2 =
     case e1 of
-        Square _ ->
+        Square _ _ ->
             case e2 of
-                Square _ ->
+                Square _ _ ->
                     True
 
                 _ ->
@@ -55,7 +55,7 @@ variantEq e1 e2 =
 viewEntity : Int -> Entity -> Svg Msg
 viewEntity id entity =
     case entity of
-        Square _ ->
+        Square _ _ ->
             Svg.rect
                 [ Svg.Attributes.width "50"
                 , Svg.Attributes.height "50"
@@ -105,8 +105,15 @@ entitiesInRange pos entity world =
 timeSystem : Float -> Int -> Float -> Entity -> ( Float, Entity )
 timeSystem dt _ position entity =
     case entity of
-        Square velocity ->
-            ( position + (dt * velocity), entity )
+        Square velocity acceleration ->
+            let
+                newVelocity =
+                    (velocity + (acceleration * dt)) * 0.99
+
+                newPosition =
+                    position + (newVelocity * dt)
+            in
+            ( newPosition, Square newVelocity 0 )
 
         Spawner ( cd, maxCd ) spawnEntity ->
             ( position, Spawner ( max 0 (cd - dt), maxCd ) spawnEntity )
@@ -167,7 +174,7 @@ runLogicSystem dt system world =
                 aiSystem : Int -> Float -> Entity -> ( Float, Entity )
                 aiSystem _ position entity =
                     case entity of
-                        Square _ ->
+                        Square velocity acceleration ->
                             let
                                 trianglesInRange =
                                     entitiesInRange position (Triangle ( 0, 0 )) world
@@ -178,10 +185,24 @@ runLogicSystem dt system world =
                             in
                             case trianglesInRange of
                                 Just ( pos, _ ) ->
-                                    ( position, Square ((pos - position) * 0.001) )
+                                    let
+                                        accel =
+                                            acceleration
+                                                + (World.relativeDistance position pos (World.mapSize world)
+                                                    * 0.00001
+                                                  )
+                                    in
+                                    ( position, Square velocity accel )
 
                                 Nothing ->
-                                    ( position, Square ((World.getCameraPosition world - position) * 0.001) )
+                                    let
+                                        accel =
+                                            acceleration
+                                                + (World.directionTo position (World.getCameraPosition world) (World.mapSize world)
+                                                    * 0.001
+                                                  )
+                                    in
+                                    ( position, Square velocity accel )
 
                         _ ->
                             ( position, entity )
@@ -231,11 +252,10 @@ init _ =
         |> World.addLogicSystem Time
         |> World.addLogicSystem Spawn
         |> World.addLogicSystem AI
-        |> World.addEntity 0 (Square 0.07)
-        |> World.addEntity 200 (Square -0.05)
-        |> World.addEntity 800 (Square 0.1)
-        |> World.addEntity 500 (Spawner ( 4000, 4000 ) (Triangle ( 0, 5000 )))
-        |> World.addEntity 500 (Triangle ( 0, 2000 ))
+        |> World.addEntity 0 (Square 0 0)
+        |> World.addEntity 200 (Square 0 0)
+        |> World.addEntity 800 (Square 0 0)
+        |> World.addEntity 0 (Spawner ( 4000, 4000 ) (Triangle ( 0, 5000 )))
     , Cmd.none
     )
 
@@ -325,7 +345,7 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Browser.Events.onAnimationFrameDelta Tick
+    Browser.Events.onAnimationFrameDelta (min 100 >> Tick)
 
 
 
