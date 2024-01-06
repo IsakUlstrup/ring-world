@@ -66,10 +66,10 @@ viewEntity id entity =
     case entity of
         Square _ _ ->
             Svg.rect
-                [ Svg.Attributes.width "50"
-                , Svg.Attributes.height "50"
-                , Svg.Attributes.x "-25"
-                , Svg.Attributes.y "-25"
+                [ Svg.Attributes.width "30"
+                , Svg.Attributes.height "30"
+                , Svg.Attributes.x "-15"
+                , Svg.Attributes.y "-35"
                 , Svg.Attributes.fill "hsl(120, 85%, 75%)"
                 , Svg.Attributes.stroke "beige"
                 , Svg.Attributes.strokeWidth "3"
@@ -86,8 +86,9 @@ viewEntity id entity =
                 , Svg.Attributes.stroke "beige"
                 , Svg.Attributes.strokeWidth "3"
                 , Svg.Attributes.strokeLinejoin "round"
-                , Svg.Attributes.transform ("translate(0, 10) scale(" ++ String.fromFloat (growth / maxGrowth) ++ ")")
+                , Svg.Attributes.transform ("scale(" ++ String.fromFloat ((growth / maxGrowth) * 0.5) ++ " " ++ String.fromFloat (growth / maxGrowth) ++ ")")
                 , Svg.Events.onClick (ClickedEntity id entity)
+                , Svg.Attributes.class "triangle"
                 ]
                 []
 
@@ -97,12 +98,9 @@ viewEntity id entity =
         Player ->
             Svg.circle
                 [ Svg.Attributes.r "25"
-                , Svg.Attributes.x "-25"
-                , Svg.Attributes.y "-25"
                 , Svg.Attributes.fill "hsl(220, 85%, 75%)"
                 , Svg.Attributes.stroke "beige"
                 , Svg.Attributes.strokeWidth "3"
-                , Svg.Attributes.strokeLinejoin "round"
                 , Svg.Attributes.class "player"
                 ]
                 []
