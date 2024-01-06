@@ -97,7 +97,7 @@ viewEntity id entity =
 
         Player ->
             Svg.circle
-                [ Svg.Attributes.r "25"
+                [ Svg.Attributes.r "15"
                 , Svg.Attributes.fill "hsl(220, 85%, 75%)"
                 , Svg.Attributes.stroke "beige"
                 , Svg.Attributes.strokeWidth "3"
@@ -210,10 +210,17 @@ runLogicSystem dt system world =
                                 Just ( pos, _ ) ->
                                     let
                                         accel =
-                                            acceleration
-                                                + (World.relativeDistance position pos (World.mapSize world)
-                                                    * 0.00001
-                                                  )
+                                            if (World.relativeDistance (World.getCameraPosition world) position (World.mapSize world) |> abs) < 200 then
+                                                acceleration
+                                                    + (World.relativeDistance position pos (World.mapSize world)
+                                                        * 0.00001
+                                                      )
+
+                                            else
+                                                acceleration
+                                                    + (World.directionTo position (World.getCameraPosition world) (World.mapSize world)
+                                                        * 0.001
+                                                      )
                                     in
                                     ( position, Square velocity accel )
 
