@@ -65,6 +65,8 @@ viewEntity id entity =
                 , Svg.Attributes.stroke "beige"
                 , Svg.Attributes.strokeWidth "3"
                 , Svg.Attributes.strokeLinejoin "round"
+                , Svg.Attributes.class "square"
+                , Svg.Attributes.style ("animation-delay: " ++ String.fromInt (id * 200) ++ "ms")
                 ]
                 []
 

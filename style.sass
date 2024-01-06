@@ -13,3 +13,14 @@ body
     height: auto
     min-height: 30rem
     background: rgba(0, 0, 0, 0.1)
+
+@keyframes float
+    0%
+        transform: translateY(0rem)
+    50%
+        transform: translateY(-2rem)
+    100%
+        transform: translateY(0rem)
+
+.square
+    animation: float 3000ms infinite ease-in-out
