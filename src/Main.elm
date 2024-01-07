@@ -19,7 +19,7 @@ import Svg.Events
 
 
 type Entity
-    = Square Float Float
+    = Minion Float Float
     | Triangle ( Float, Float )
     | Spawner ( Float, Float ) Entity
     | Player
@@ -28,9 +28,9 @@ type Entity
 variantEq : Entity -> Entity -> Bool
 variantEq e1 e2 =
     case e1 of
-        Square _ _ ->
+        Minion _ _ ->
             case e2 of
-                Square _ _ ->
+                Minion _ _ ->
                     True
 
                 _ ->
@@ -74,17 +74,14 @@ isReadyTriangle entity =
 viewEntity : Int -> Entity -> Svg Msg
 viewEntity id entity =
     case entity of
-        Square _ _ ->
-            Svg.rect
-                [ Svg.Attributes.width "30"
-                , Svg.Attributes.height "30"
-                , Svg.Attributes.x "-15"
-                , Svg.Attributes.y "-35"
-                , Svg.Attributes.fill "hsl(120, 85%, 75%)"
+        Minion _ _ ->
+            Svg.circle
+                [ Svg.Attributes.r "10"
+                , Svg.Attributes.cy "-35"
+                , Svg.Attributes.fill "hsl(220, 85%, 75%)"
                 , Svg.Attributes.stroke "beige"
-                , Svg.Attributes.strokeWidth "3"
-                , Svg.Attributes.strokeLinejoin "round"
-                , Svg.Attributes.class "square"
+                , Svg.Attributes.strokeWidth "2"
+                , Svg.Attributes.class "minion"
                 , Svg.Attributes.style ("animation-delay: " ++ String.fromInt (id * 200) ++ "ms")
                 ]
                 []
@@ -106,11 +103,14 @@ viewEntity id entity =
             Svg.g [] []
 
         Player ->
-            Svg.circle
-                [ Svg.Attributes.r "15"
-                , Svg.Attributes.fill "hsl(220, 85%, 75%)"
+            Svg.rect
+                [ Svg.Attributes.width "30"
+                , Svg.Attributes.height "30"
+                , Svg.Attributes.x "-15"
+                , Svg.Attributes.fill "hsl(120, 85%, 75%)"
                 , Svg.Attributes.stroke "beige"
                 , Svg.Attributes.strokeWidth "3"
+                , Svg.Attributes.strokeLinejoin "round"
                 , Svg.Attributes.class "player"
                 ]
                 []
@@ -135,15 +135,15 @@ entitiesInRange pos entity world =
 timeSystem : Float -> Int -> Float -> Entity -> ( Float, Entity )
 timeSystem dt _ position entity =
     case entity of
-        Square velocity acceleration ->
+        Minion velocity acceleration ->
             let
                 newVelocity =
-                    (velocity + (acceleration * dt)) * 0.95
+                    (velocity + (acceleration * dt)) * 0.9
 
                 newPosition =
                     position + (newVelocity * dt)
             in
-            ( newPosition, Square newVelocity 0 )
+            ( newPosition, Minion newVelocity 0 )
 
         Spawner ( cd, maxCd ) spawnEntity ->
             ( position, Spawner ( max 0 (cd - dt), maxCd ) spawnEntity )
@@ -189,10 +189,10 @@ spawnSystem world =
         |> World.mapEntities resetSpawnTimer
 
 
-moveSquareTowardsNearest : (Entity -> Bool) -> Float -> Float -> Entity -> World Entity a c -> ( Float, Entity )
-moveSquareTowardsNearest pred range position entity world =
+moveMinionTowardsNearest : (Entity -> Bool) -> Float -> Float -> Entity -> World Entity a c -> ( Float, Entity )
+moveMinionTowardsNearest pred range position entity world =
     case entity of
-        Square velocity acceleration ->
+        Minion velocity acceleration ->
             let
                 trianglesInRange =
                     World.getEntitiesRange (World.getCameraPosition world) range world
@@ -205,7 +205,7 @@ moveSquareTowardsNearest pred range position entity world =
             case trianglesInRange of
                 Just ( pos, _ ) ->
                     ( position
-                    , Square velocity
+                    , Minion velocity
                         (acceleration
                             + (World.relativeDistance position pos (World.mapSize world)
                                 * 0.00001
@@ -215,7 +215,7 @@ moveSquareTowardsNearest pred range position entity world =
 
                 Nothing ->
                     ( position
-                    , Square velocity
+                    , Minion velocity
                         (acceleration
                             + (World.directionTo position (World.getCameraPosition world) (World.mapSize world)
                                 * 0.001
@@ -240,7 +240,7 @@ runLogicSystem dt system world =
             let
                 aiSystem : Int -> Float -> Entity -> ( Float, Entity )
                 aiSystem _ position entity =
-                    moveSquareTowardsNearest isReadyTriangle 200 position entity world
+                    moveMinionTowardsNearest isReadyTriangle 200 position entity world
             in
             World.mapEntities aiSystem world
 
@@ -270,7 +270,7 @@ runRenderSystem id position entity system =
 
         Vector ->
             case entity of
-                Square velocity _ ->
+                Minion velocity _ ->
                     Svg.g []
                         [ Svg.line
                             [ Svg.Attributes.x1 (String.fromFloat 0)
@@ -307,9 +307,9 @@ init _ =
         |> World.addLogicSystem Time
         |> World.addLogicSystem Spawn
         |> World.addLogicSystem AI
-        |> World.addEntity 0 (Square 0 0)
-        |> World.addEntity 200 (Square 0 0)
-        |> World.addEntity 800 (Square 0 0)
+        |> World.addEntity 0 (Minion 0 0)
+        |> World.addEntity 200 (Minion 0 0)
+        |> World.addEntity 800 (Minion 0 0)
         |> World.addEntity 0 (Spawner ( 4000, 4000 ) (Triangle ( 0, 5000 )))
     , Cmd.none
     )
