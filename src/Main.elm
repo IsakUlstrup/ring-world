@@ -81,7 +81,7 @@ viewEntity id entity =
 
         Triangle ( growth, maxGrowth ) ->
             Svg.polygon
-                [ Svg.Attributes.points "0,-35 30.4,17.5 -30.4,17.5"
+                [ Svg.Attributes.points "0,-75 30.4,17.5 -30.4,17.5"
                 , Svg.Attributes.fill "hsl(320, 85%, 75%)"
                 , Svg.Attributes.stroke "beige"
                 , Svg.Attributes.strokeWidth "3"
