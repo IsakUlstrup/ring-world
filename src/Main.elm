@@ -211,7 +211,7 @@ runLogicSystem dt system world =
                                         |> Dict.toList
                                         |> List.map Tuple.second
                                         -- |> List.filter (\( p, _ ) -> (World.relativeDistance p (World.getCameraPosition world) (World.mapSize world) |> abs) < 200)
-                                        |> List.sortBy (\( p, _ ) -> World.relativeDistance p (World.getCameraPosition world) (World.mapSize world) |> abs)
+                                        |> List.sortBy (\( p, _ ) -> World.relativeDistance p position (World.mapSize world) |> abs)
                                         |> List.head
                             in
                             case trianglesInRange of
