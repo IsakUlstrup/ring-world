@@ -209,24 +209,24 @@ runLogicSystem dt system world =
                             in
                             case trianglesInRange of
                                 Just ( pos, _ ) ->
-                                    let
-                                        accel =
-                                            acceleration
-                                                + (World.relativeDistance position pos (World.mapSize world)
-                                                    * 0.00001
-                                                  )
-                                    in
-                                    ( position, Square velocity accel )
+                                    ( position
+                                    , Square velocity
+                                        (acceleration
+                                            + (World.relativeDistance position pos (World.mapSize world)
+                                                * 0.00001
+                                              )
+                                        )
+                                    )
 
                                 Nothing ->
-                                    let
-                                        accel =
-                                            acceleration
-                                                + (World.directionTo position (World.getCameraPosition world) (World.mapSize world)
-                                                    * 0.001
-                                                  )
-                                    in
-                                    ( position, Square velocity accel )
+                                    ( position
+                                    , Square velocity
+                                        (acceleration
+                                            + (World.directionTo position (World.getCameraPosition world) (World.mapSize world)
+                                                * 0.001
+                                              )
+                                        )
+                                    )
 
                         _ ->
                             ( position, entity )
