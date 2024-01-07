@@ -189,6 +189,44 @@ spawnSystem world =
         |> World.mapEntities resetSpawnTimer
 
 
+moveSquareTowardsNearest : (Entity -> Bool) -> Float -> Float -> Entity -> World Entity a c -> ( Float, Entity )
+moveSquareTowardsNearest pred range position entity world =
+    case entity of
+        Square velocity acceleration ->
+            let
+                trianglesInRange =
+                    World.getEntitiesRange (World.getCameraPosition world) range world
+                        |> Dict.filter (\_ ( _, data ) -> pred data)
+                        |> Dict.toList
+                        |> List.map Tuple.second
+                        |> List.sortBy (\( p, _ ) -> World.relativeDistance p position (World.mapSize world) |> abs)
+                        |> List.head
+            in
+            case trianglesInRange of
+                Just ( pos, _ ) ->
+                    ( position
+                    , Square velocity
+                        (acceleration
+                            + (World.relativeDistance position pos (World.mapSize world)
+                                * 0.00001
+                              )
+                        )
+                    )
+
+                Nothing ->
+                    ( position
+                    , Square velocity
+                        (acceleration
+                            + (World.directionTo position (World.getCameraPosition world) (World.mapSize world)
+                                * 0.001
+                              )
+                        )
+                    )
+
+        _ ->
+            ( position, entity )
+
+
 runLogicSystem : Float -> LogicSystem -> World Entity LogicSystem RenderSystem -> World Entity LogicSystem RenderSystem
 runLogicSystem dt system world =
     case system of
@@ -202,41 +240,7 @@ runLogicSystem dt system world =
             let
                 aiSystem : Int -> Float -> Entity -> ( Float, Entity )
                 aiSystem _ position entity =
-                    case entity of
-                        Square velocity acceleration ->
-                            let
-                                trianglesInRange =
-                                    World.getEntitiesRange (World.getCameraPosition world) 200 world
-                                        |> Dict.filter (\_ ( _, data ) -> isReadyTriangle data)
-                                        |> Dict.toList
-                                        |> List.map Tuple.second
-                                        -- |> List.filter (\( p, _ ) -> (World.relativeDistance p (World.getCameraPosition world) (World.mapSize world) |> abs) < 200)
-                                        |> List.sortBy (\( p, _ ) -> World.relativeDistance p position (World.mapSize world) |> abs)
-                                        |> List.head
-                            in
-                            case trianglesInRange of
-                                Just ( pos, _ ) ->
-                                    ( position
-                                    , Square velocity
-                                        (acceleration
-                                            + (World.relativeDistance position pos (World.mapSize world)
-                                                * 0.00001
-                                              )
-                                        )
-                                    )
-
-                                Nothing ->
-                                    ( position
-                                    , Square velocity
-                                        (acceleration
-                                            + (World.directionTo position (World.getCameraPosition world) (World.mapSize world)
-                                                * 0.001
-                                              )
-                                        )
-                                    )
-
-                        _ ->
-                            ( position, entity )
+                    moveSquareTowardsNearest isReadyTriangle 200 position entity world
             in
             World.mapEntities aiSystem world
 
