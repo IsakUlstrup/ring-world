@@ -138,7 +138,7 @@ timeSystem dt _ position entity =
         Minion velocity acceleration ->
             let
                 newVelocity =
-                    (velocity + (acceleration * dt)) * 0.9
+                    (velocity + (acceleration * dt)) * 0.95
 
                 newPosition =
                     position + (newVelocity * dt)
@@ -217,8 +217,8 @@ moveMinionTowardsNearest pred range position entity world =
                     ( position
                     , Minion velocity
                         (acceleration
-                            + (World.directionTo position (World.getCameraPosition world) (World.mapSize world)
-                                * 0.001
+                            + (World.relativeDistance position (World.getCameraPosition world) (World.mapSize world)
+                                * 0.00001
                               )
                         )
                     )
