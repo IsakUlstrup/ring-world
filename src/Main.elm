@@ -128,7 +128,7 @@ timeSystem dt _ position entity =
         Square velocity acceleration ->
             let
                 newVelocity =
-                    (velocity + (acceleration * dt)) * 0.99
+                    (velocity + (acceleration * dt)) * 0.95
 
                 newPosition =
                     position + (newVelocity * dt)
@@ -203,24 +203,18 @@ runLogicSystem dt system world =
                                     entitiesInRange position (Triangle ( 0, 0 )) world
                                         |> Dict.toList
                                         |> List.map Tuple.second
-                                        |> List.sortBy (\( p, _ ) -> World.relativeDistance p position (World.mapSize world) |> abs)
+                                        |> List.filter (\( p, _ ) -> (World.relativeDistance p (World.getCameraPosition world) (World.mapSize world) |> abs) < 200)
+                                        |> List.sortBy (\( p, _ ) -> World.relativeDistance p (World.getCameraPosition world) (World.mapSize world) |> abs)
                                         |> List.head
                             in
                             case trianglesInRange of
                                 Just ( pos, _ ) ->
                                     let
                                         accel =
-                                            if (World.relativeDistance (World.getCameraPosition world) position (World.mapSize world) |> abs) < 200 then
-                                                acceleration
-                                                    + (World.relativeDistance position pos (World.mapSize world)
-                                                        * 0.00001
-                                                      )
-
-                                            else
-                                                acceleration
-                                                    + (World.directionTo position (World.getCameraPosition world) (World.mapSize world)
-                                                        * 0.001
-                                                      )
+                                            acceleration
+                                                + (World.relativeDistance position pos (World.mapSize world)
+                                                    * 0.00001
+                                                  )
                                     in
                                     ( position, Square velocity accel )
 
