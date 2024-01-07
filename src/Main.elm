@@ -61,6 +61,16 @@ variantEq e1 e2 =
                     False
 
 
+isReadyTriangle : Entity -> Bool
+isReadyTriangle entity =
+    case entity of
+        Triangle ( growth, maxGrowth ) ->
+            growth >= maxGrowth
+
+        _ ->
+            False
+
+
 viewEntity : Int -> Entity -> Svg Msg
 viewEntity id entity =
     case entity of
@@ -139,11 +149,7 @@ timeSystem dt _ position entity =
             ( position, Spawner ( max 0 (cd - dt), maxCd ) spawnEntity )
 
         Triangle ( growth, maxGrowth ) ->
-            if growth + dt >= maxGrowth then
-                ( position, entity )
-
-            else
-                ( position, Triangle ( growth + dt |> min maxGrowth, maxGrowth ) )
+            ( position, Triangle ( growth + dt |> min maxGrowth, maxGrowth ) )
 
         Player ->
             ( position, entity )
@@ -200,10 +206,11 @@ runLogicSystem dt system world =
                         Square velocity acceleration ->
                             let
                                 trianglesInRange =
-                                    entitiesInRange position (Triangle ( 0, 0 )) world
+                                    World.getEntitiesRange (World.getCameraPosition world) 200 world
+                                        |> Dict.filter (\_ ( _, data ) -> isReadyTriangle data)
                                         |> Dict.toList
                                         |> List.map Tuple.second
-                                        |> List.filter (\( p, _ ) -> (World.relativeDistance p (World.getCameraPosition world) (World.mapSize world) |> abs) < 200)
+                                        -- |> List.filter (\( p, _ ) -> (World.relativeDistance p (World.getCameraPosition world) (World.mapSize world) |> abs) < 200)
                                         |> List.sortBy (\( p, _ ) -> World.relativeDistance p (World.getCameraPosition world) (World.mapSize world) |> abs)
                                         |> List.head
                             in
