@@ -7,17 +7,17 @@ module RingWorld exposing
     , camera
     , directionTo
     , empty
-    , getCameraPosition
     , getEntities
     , getEntitiesRange
+    , getMapSize
+    , getPlayerPosition
     , mapEntities
-    , mapSize
-    , moveCamera
+    , movePlayer
     , relativeDistance
     , removeEntity
     , runLogicSystems
     , runRenderSystems
-    , setCameraPos
+    , setPlayerPos
     )
 
 import Dict exposing (Dict)
@@ -35,25 +35,25 @@ type World a b c
         , idCounter : Int
         , seed : Seed
         , mapSize : Float
-        , cameraPosition : Float
+        , player : ( Float, a )
         }
 
 
-empty : World a b c
-empty =
+empty : ( Float, a ) -> World a b c
+empty ( playerPos, playerData ) =
     World
         { entities = Dict.empty
         , logicSystems = Dict.empty
         , renderSystems = Dict.empty
-        , idCounter = 0
+        , idCounter = 1
         , seed = Random.initialSeed 42
         , mapSize = 2300
-        , cameraPosition = 0
+        , player = ( clampPosition 2300 playerPos, playerData )
         }
 
 
-mapSize : World a b c -> Float
-mapSize (World world) =
+getMapSize : World a b c -> Float
+getMapSize (World world) =
     world.mapSize
 
 
@@ -65,7 +65,7 @@ addEntity : Float -> a -> World a b c -> World a b c
 addEntity position entity (World world) =
     World
         { world
-            | entities = Dict.insert world.idCounter ( clampPosition (World world) position, entity ) world.entities
+            | entities = Dict.insert world.idCounter ( clampPosition world.mapSize position, entity ) world.entities
             , idCounter = world.idCounter + 1
         }
 
@@ -87,7 +87,7 @@ mapEntities f (World world) =
                 Dict.map
                     (\id ( pos, data ) ->
                         f id pos data
-                            |> Tuple.mapFirst (clampPosition (World world))
+                            |> Tuple.mapFirst (clampPosition world.mapSize)
                     )
                     world.entities
         }
@@ -95,7 +95,7 @@ mapEntities f (World world) =
 
 getEntities : World a b c -> Dict Int ( Float, a )
 getEntities (World world) =
-    world.entities
+    world.entities |> Dict.insert 0 world.player
 
 
 getEntitiesRange : Float -> Float -> World a b c -> Dict Int ( Float, a )
@@ -127,40 +127,35 @@ addRenderSystem system (World world) =
 
 
 camera : World a b c -> List (Svg msg) -> Svg msg
-camera (World world) children =
-    Svg.g [ Svg.Attributes.transform ("translate(" ++ String.fromFloat -world.cameraPosition ++ ", 0)") ] children
+camera world children =
+    Svg.g [ Svg.Attributes.transform ("translate(" ++ String.fromFloat -(getPlayerPosition world) ++ ", 0)") ] children
 
 
-getCameraPosition : World a b c -> Float
-getCameraPosition (World world) =
-    world.cameraPosition
+getPlayerPosition : World a b c -> Float
+getPlayerPosition (World world) =
+    world.player |> Tuple.first
 
 
-clampPosition : World a b c -> Float -> Float
-clampPosition (World world) position =
-    if position > world.mapSize then
-        position - world.mapSize
+clampPosition : Float -> Float -> Float
+clampPosition mapSize position =
+    if position > mapSize then
+        position - mapSize
 
     else if position < 0 then
-        world.mapSize + position
+        mapSize + position
 
     else
         position
 
 
-moveCamera : Float -> World a b c -> World a b c
-moveCamera delta (World world) =
-    let
-        cameraPos =
-            clampPosition (World world)
-                (world.cameraPosition + delta)
-    in
-    World { world | cameraPosition = cameraPos }
+movePlayer : Float -> World a b c -> World a b c
+movePlayer delta (World world) =
+    World { world | player = Tuple.mapFirst (\p -> clampPosition world.mapSize (p + delta)) world.player }
 
 
-setCameraPos : Float -> World a b c -> World a b c
-setCameraPos pos (World world) =
-    World { world | cameraPosition = pos }
+setPlayerPos : Float -> World a b c -> World a b c
+setPlayerPos pos (World world) =
+    World { world | player = Tuple.mapFirst (always (clampPosition world.mapSize pos)) world.player }
 
 
 relativeDistance : Float -> Float -> Float -> Float
@@ -207,13 +202,13 @@ runRenderSystems renderRadius runSystem (World world) =
     let
         isInRange : Float -> ( Int, ( Float, a ) ) -> Bool
         isInRange radius ( _, ( pos, _ ) ) =
-            (relativeDistance world.cameraPosition pos world.mapSize |> abs) <= radius
+            (relativeDistance (world.player |> Tuple.first) pos world.mapSize |> abs) <= radius
 
         renderEntity : c -> ( Int, ( Float, a ) ) -> Svg msg
         renderEntity system ( id, ( pos, entity ) ) =
             Svg.Keyed.node "g"
                 [ Svg.Attributes.class "entity-transform"
-                , Svg.Attributes.transform ("translate(" ++ String.fromFloat (relativeDistance world.cameraPosition pos world.mapSize) ++ ", 0)")
+                , Svg.Attributes.transform ("translate(" ++ String.fromFloat (relativeDistance (world.player |> Tuple.first) pos world.mapSize) ++ ", 0)")
                 ]
                 [ ( String.fromInt id
                   , runSystem id pos entity system
@@ -224,7 +219,8 @@ runRenderSystems renderRadius runSystem (World world) =
         runRenderSystem ( id, ( _, data ) ) =
             ( String.fromInt id
             , Svg.g [ Svg.Attributes.class ("render-system-" ++ String.fromInt id) ]
-                (world.entities
+                (World world
+                    |> getEntities
                     |> Dict.toList
                     |> List.filter (isInRange renderRadius)
                     |> List.map (renderEntity data)

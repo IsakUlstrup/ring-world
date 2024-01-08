@@ -5,7 +5,6 @@ import Browser.Events
 import Dict
 import Html exposing (Html, main_)
 import Html.Attributes
-import Html.Events
 import Json.Decode as Decode exposing (Decoder)
 import Random
 import RingWorld as World exposing (World)
@@ -195,11 +194,11 @@ moveMinionTowardsNearest pred range position entity world =
         Minion velocity acceleration ->
             let
                 trianglesInRange =
-                    World.getEntitiesRange (World.getCameraPosition world) range world
+                    World.getEntitiesRange (World.getPlayerPosition world) range world
                         |> Dict.filter (\_ ( _, data ) -> pred data)
                         |> Dict.toList
                         |> List.map Tuple.second
-                        |> List.sortBy (\( p, _ ) -> World.relativeDistance p position (World.mapSize world) |> abs)
+                        |> List.sortBy (\( p, _ ) -> World.relativeDistance p position (World.getMapSize world) |> abs)
                         |> List.head
             in
             case trianglesInRange of
@@ -207,7 +206,7 @@ moveMinionTowardsNearest pred range position entity world =
                     ( position
                     , Minion velocity
                         (acceleration
-                            + (World.relativeDistance position pos (World.mapSize world)
+                            + (World.relativeDistance position pos (World.getMapSize world)
                                 * 0.00001
                               )
                         )
@@ -217,7 +216,7 @@ moveMinionTowardsNearest pred range position entity world =
                     ( position
                     , Minion velocity
                         (acceleration
-                            + (World.relativeDistance position (World.getCameraPosition world) (World.mapSize world)
+                            + (World.relativeDistance position (World.getPlayerPosition world) (World.getMapSize world)
                                 * 0.00001
                               )
                         )
@@ -300,7 +299,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( World.empty
+    ( World.empty ( 0, Player )
         -- |> World.addRenderSystem Position
         |> World.addRenderSystem Shape
         -- |> World.addRenderSystem Vector
@@ -333,10 +332,10 @@ update msg model =
             ( model |> World.runLogicSystems (runLogicSystem dt), Cmd.none )
 
         ClickedMoveCamera delta ->
-            ( model |> World.moveCamera delta, Cmd.none )
+            ( model |> World.movePlayer delta, Cmd.none )
 
         SetCameraPosition pos ->
-            ( model |> World.setCameraPos pos, Cmd.none )
+            ( model |> World.setPlayerPos pos, Cmd.none )
 
         ClickedEntity id entity ->
             case entity of
@@ -388,10 +387,9 @@ view model =
             , Svg.Attributes.viewBox "-500 -250 1000 500"
             , Svg.Attributes.preserveAspectRatio "xMidYMid slice"
             , Svg.Events.on "wheel" (wheelDecoder ClickedMoveCamera)
-            , Svg.Attributes.style ("background-position: " ++ String.fromFloat -(World.getCameraPosition model) ++ "px 0")
+            , Svg.Attributes.style ("background-position: " ++ String.fromFloat -(World.getPlayerPosition model) ++ "px 0")
             ]
             [ World.runRenderSystems 600 runRenderSystem model
-            , viewEntity -1 Player
             ]
         ]
 
