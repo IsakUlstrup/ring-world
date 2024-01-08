@@ -18,6 +18,7 @@ module RingWorld exposing
     , runLogicSystems
     , runRenderSystems
     , setPlayerPos
+    , updatePlayer
     )
 
 import Dict exposing (Dict)
@@ -97,6 +98,11 @@ mapEntities f (World world) =
                                 |> Tuple.mapFirst (clampPosition world.mapSize)
                        )
         }
+
+
+updatePlayer : (Float -> a -> ( Float, a )) -> World a b c -> World a b c
+updatePlayer f (World world) =
+    World { world | player = world.player |> (\( pos, data ) -> f pos data) }
 
 
 getEntities : World a b c -> Dict Int ( Float, a )

@@ -21,7 +21,7 @@ type Entity
     = Minion Float Float
     | Triangle ( Float, Float )
     | Spawner ( Float, Float ) Entity
-    | Player
+    | Player Float Float
 
 
 variantEq : Entity -> Entity -> Bool
@@ -51,9 +51,9 @@ variantEq e1 e2 =
                 _ ->
                     False
 
-        Player ->
+        Player _ _ ->
             case e2 of
-                Player ->
+                Player _ _ ->
                     True
 
                 _ ->
@@ -68,6 +68,19 @@ isReadyTriangle entity =
 
         _ ->
             False
+
+
+applyForce : Float -> Entity -> Entity
+applyForce force entity =
+    case entity of
+        Minion velocity acceleration ->
+            Minion velocity (acceleration + force)
+
+        Player velocity acceleration ->
+            Player velocity (acceleration + force)
+
+        _ ->
+            entity
 
 
 viewEntity : Int -> Entity -> Svg Msg
@@ -101,7 +114,7 @@ viewEntity id entity =
         Spawner _ _ ->
             Svg.g [] []
 
-        Player ->
+        Player _ _ ->
             Svg.rect
                 [ Svg.Attributes.width "30"
                 , Svg.Attributes.height "30"
@@ -150,8 +163,15 @@ timeSystem dt _ position entity =
         Triangle ( growth, maxGrowth ) ->
             ( position, Triangle ( growth + dt |> min maxGrowth, maxGrowth ) )
 
-        Player ->
-            ( position, entity )
+        Player velocity acceleration ->
+            let
+                newVelocity =
+                    (velocity + (acceleration * dt)) * 0.95
+
+                newPosition =
+                    position + (newVelocity * dt)
+            in
+            ( newPosition, Player newVelocity 0 )
 
 
 spawnSystem : World Entity LogicSystem RenderSystem -> World Entity LogicSystem RenderSystem
@@ -282,6 +302,19 @@ runRenderSystem id position entity system =
                             []
                         ]
 
+                Player velocity _ ->
+                    Svg.g []
+                        [ Svg.line
+                            [ Svg.Attributes.x1 (String.fromFloat 0)
+                            , Svg.Attributes.y1 "0"
+                            , Svg.Attributes.x2 (String.fromFloat (0 + (velocity * 100)))
+                            , Svg.Attributes.y2 "0"
+                            , Svg.Attributes.stroke "beige"
+                            , Svg.Attributes.strokeWidth "3"
+                            ]
+                            []
+                        ]
+
                 _ ->
                     Svg.g [] []
 
@@ -299,7 +332,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( World.empty ( 0, Player )
+    ( World.empty ( 0, Player 0 0 )
         -- |> World.addRenderSystem Position
         |> World.addRenderSystem Shape
         -- |> World.addRenderSystem Vector
@@ -332,7 +365,7 @@ update msg model =
             ( model |> World.runLogicSystems (runLogicSystem dt), Cmd.none )
 
         ClickedMoveCamera delta ->
-            ( model |> World.movePlayer delta, Cmd.none )
+            ( model |> World.updatePlayer (\pos player -> ( pos, applyForce (delta * 0.0001) player )), Cmd.none )
 
         SetCameraPosition pos ->
             ( model |> World.setPlayerPos pos, Cmd.none )
