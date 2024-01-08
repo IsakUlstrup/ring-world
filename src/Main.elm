@@ -367,21 +367,21 @@ prettyFloat n =
 view : Model -> Html Msg
 view model =
     main_ [ Html.Attributes.id "app" ]
-        [ Html.div
-            [ Html.Attributes.class "sidebar"
-            ]
-            [ Html.p [ Html.Attributes.style "text-align" "center" ] [ Html.text ("Camera pos: " ++ prettyFloat (World.getCameraPosition model)) ]
-            , Html.input
-                [ Html.Attributes.type_ "range"
-                , Html.Attributes.max (World.mapSize model |> String.fromFloat)
-                , Html.Attributes.step "0.1"
-                , Html.Attributes.value (World.getCameraPosition model |> String.fromFloat)
-                , Html.Events.onInput (String.toFloat >> Maybe.withDefault (World.getCameraPosition model) >> SetCameraPosition)
-                , Html.Attributes.style "width" "100%"
-                ]
-                []
-            ]
-        , Svg.svg
+        [ -- Html.div
+          -- [ Html.Attributes.class "sidebar"
+          -- ]
+          -- [ Html.p [ Html.Attributes.style "text-align" "center" ] [ Html.text ("Camera pos: " ++ prettyFloat (World.getCameraPosition model)) ]
+          -- , Html.input
+          --     [ Html.Attributes.type_ "range"
+          --     , Html.Attributes.max (World.mapSize model |> String.fromFloat)
+          --     , Html.Attributes.step "0.1"
+          --     , Html.Attributes.value (World.getCameraPosition model |> String.fromFloat)
+          --     , Html.Events.onInput (String.toFloat >> Maybe.withDefault (World.getCameraPosition model) >> SetCameraPosition)
+          --     , Html.Attributes.style "width" "100%"
+          --     ]
+          --     []
+          -- ]
+          Svg.svg
             [ Svg.Attributes.class "svg-map"
             , Svg.Attributes.width "1000"
             , Svg.Attributes.height "500"
