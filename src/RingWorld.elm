@@ -90,6 +90,12 @@ mapEntities f (World world) =
                             |> Tuple.mapFirst (clampPosition world.mapSize)
                     )
                     world.entities
+            , player =
+                world.player
+                    |> (\( pos, data ) ->
+                            f 0 pos data
+                                |> Tuple.mapFirst (clampPosition world.mapSize)
+                       )
         }
 
 
@@ -105,7 +111,7 @@ getEntitiesRange position radius (World world) =
         isInRange _ ( pos, _ ) =
             (relativeDistance position pos world.mapSize |> abs) <= radius
     in
-    world.entities |> Dict.filter isInRange
+    world.entities |> Dict.insert 0 world.player |> Dict.filter isInRange
 
 
 removeEntity : Int -> World a b c -> World a b c
