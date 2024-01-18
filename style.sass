@@ -9,11 +9,10 @@
     font-family: Helvetica, Arial, sans-serif
     height: 100vh
     display: flex
+    flex-direction: column
 
-.sidebar
-    width: 20rem
+.inventory
     padding: 1rem
-    overflow-x: auto
 
 .svg-map
     width: 100%
@@ -25,17 +24,18 @@
     background-size: 32px 32px
     background-position: 0 0,16px 16px
 
-@keyframes float
-    0%
-        transform: translateY(0rem)
-    50%
-        transform: translateY(-2rem)
-    100%
-        transform: translateY(0rem)
-
-.minion
-    animation: float 3000ms infinite ease-in-out
-
 .triangle
     transform-box: fill-box
     transform-origin: bottom center
+
+// MINION
+@keyframes fall-fade
+    0%
+        transform: translateY(10rem) scale(2)
+        opacity: 0
+    100%
+        transform: translateY(0rem) scale(1)
+        opacity: 1
+
+.minion
+    animation: fall-fade 500ms forwards cubic-bezier(0.34, 1.56, 0.64, 1)

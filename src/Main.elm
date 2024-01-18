@@ -5,6 +5,7 @@ import Browser.Events
 import Dict
 import Html exposing (Html, main_)
 import Html.Attributes
+import Html.Events
 import Json.Decode as Decode exposing (Decoder)
 import Random
 import RingWorld as World exposing (World)
@@ -89,12 +90,11 @@ viewEntity id entity =
         Minion _ _ ->
             Svg.circle
                 [ Svg.Attributes.r "10"
-                , Svg.Attributes.cy "-35"
                 , Svg.Attributes.fill "hsl(220, 85%, 75%)"
                 , Svg.Attributes.stroke "beige"
                 , Svg.Attributes.strokeWidth "2"
+                , Svg.Events.onClick (ClickedEntity id entity)
                 , Svg.Attributes.class "minion"
-                , Svg.Attributes.style ("animation-delay: " ++ String.fromInt (id * 200) ++ "ms")
                 ]
                 []
 
@@ -106,7 +106,6 @@ viewEntity id entity =
                 , Svg.Attributes.strokeWidth "3"
                 , Svg.Attributes.strokeLinejoin "round"
                 , Svg.Attributes.transform ("scale(" ++ String.fromFloat ((growth / maxGrowth) * 0.5) ++ " " ++ String.fromFloat (growth / maxGrowth) ++ ")")
-                , Svg.Events.onClick (ClickedEntity id entity)
                 , Svg.Attributes.class "triangle"
                 ]
                 []
@@ -115,17 +114,16 @@ viewEntity id entity =
             Svg.g [] []
 
         Player _ _ ->
-            Svg.rect
-                [ Svg.Attributes.width "30"
-                , Svg.Attributes.height "30"
-                , Svg.Attributes.x "-15"
-                , Svg.Attributes.fill "hsl(120, 85%, 75%)"
-                , Svg.Attributes.stroke "beige"
-                , Svg.Attributes.strokeWidth "3"
-                , Svg.Attributes.strokeLinejoin "round"
-                , Svg.Attributes.class "player"
-                ]
-                []
+            -- Svg.polygon
+            --     [ Svg.Attributes.points "0,30 20,50 -20,50"
+            --     , Svg.Attributes.fill "beige"
+            --     , Svg.Attributes.stroke "beige"
+            --     , Svg.Attributes.strokeWidth "3"
+            --     , Svg.Attributes.strokeLinejoin "round"
+            --     , Svg.Attributes.class "player"
+            --     ]
+            --     []
+            Svg.g [] []
 
 
 
@@ -282,9 +280,9 @@ runRenderSystem id position entity system =
                 [ Svg.text_
                     [ Svg.Attributes.textAnchor "middle"
                     , Svg.Attributes.fill "beige"
-                    , Svg.Attributes.transform "translate(0, 50)"
+                    , Svg.Attributes.transform "translate(0, -50)"
                     ]
-                    [ Svg.text ("pos: " ++ prettyFloat position) ]
+                    [ Svg.text ("pos: " ++ prettyFloat position ++ ", id: " ++ String.fromInt id) ]
                 ]
 
         Vector ->
@@ -327,22 +325,24 @@ runRenderSystem id position entity system =
 
 
 type alias Model =
-    World Entity LogicSystem RenderSystem
+    { world : World Entity LogicSystem RenderSystem
+    , inventory : List Entity
+    }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( World.empty ( 0, Player 0 0 )
-        -- |> World.addRenderSystem Position
-        |> World.addRenderSystem Shape
-        -- |> World.addRenderSystem Vector
-        |> World.addLogicSystem Time
-        |> World.addLogicSystem Spawn
-        |> World.addLogicSystem AI
-        |> World.addEntity 0 (Minion 0 0)
-        |> World.addEntity 200 (Minion 0 0)
-        |> World.addEntity 800 (Minion 0 0)
-        |> World.addEntity 0 (Spawner ( 4000, 4000 ) (Triangle ( 0, 5000 )))
+    ( Model
+        (World.empty ( 0, Player 0 0 )
+            -- |> World.addRenderSystem Position
+            |> World.addRenderSystem Shape
+            -- |> World.addRenderSystem Vector
+            |> World.addLogicSystem Time
+         -- |> World.addLogicSystem Spawn
+         -- |> World.addLogicSystem AI
+         -- |> World.addEntity 0 (Spawner ( 4000, 4000 ) (Triangle ( 0, 5000 )))
+        )
+        [ Minion 0 0, Minion 1 0 ]
     , Cmd.none
     )
 
@@ -356,27 +356,36 @@ type Msg
     | SetCameraPosition Float
     | Tick Float
     | ClickedEntity Int Entity
+    | ClickedSpawnMinion Entity
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Tick dt ->
-            ( model |> World.runLogicSystems (runLogicSystem dt), Cmd.none )
+            ( { model | world = model.world |> World.runLogicSystems (runLogicSystem dt) }, Cmd.none )
 
         ClickedMoveCamera delta ->
-            ( model |> World.updatePlayer (\pos player -> ( pos, applyForce (delta * 0.0001) player )), Cmd.none )
+            ( { model | world = model.world |> World.updatePlayer (\pos player -> ( pos, applyForce (delta * 0.0001) player )) }, Cmd.none )
 
         SetCameraPosition pos ->
-            ( model |> World.setPlayerPos pos, Cmd.none )
+            ( { model | world = model.world |> World.setPlayerPos pos }, Cmd.none )
 
         ClickedEntity id entity ->
-            case entity of
-                Triangle _ ->
-                    ( model |> World.removeEntity id, Cmd.none )
+            ( { model
+                | world = model.world |> World.removeEntity id
+                , inventory = entity :: model.inventory
+              }
+            , Cmd.none
+            )
 
-                _ ->
-                    ( model, Cmd.none )
+        ClickedSpawnMinion entity ->
+            ( { model
+                | world = model.world |> World.addEntity (World.getPlayerPosition model.world) entity
+                , inventory = model.inventory |> List.filter (\e -> e /= entity)
+              }
+            , Cmd.none
+            )
 
 
 
@@ -396,33 +405,28 @@ prettyFloat n =
             "err"
 
 
+viewInventoryEntity : Entity -> Html Msg
+viewInventoryEntity entity =
+    Html.button [ Html.Events.onClick (ClickedSpawnMinion entity) ] [ Html.text "Spawn entity" ]
+
+
 view : Model -> Html Msg
 view model =
     main_ [ Html.Attributes.id "app" ]
-        [ -- Html.div
-          -- [ Html.Attributes.class "sidebar"
-          -- ]
-          -- [ Html.p [ Html.Attributes.style "text-align" "center" ] [ Html.text ("Camera pos: " ++ prettyFloat (World.getCameraPosition model)) ]
-          -- , Html.input
-          --     [ Html.Attributes.type_ "range"
-          --     , Html.Attributes.max (World.mapSize model |> String.fromFloat)
-          --     , Html.Attributes.step "0.1"
-          --     , Html.Attributes.value (World.getCameraPosition model |> String.fromFloat)
-          --     , Html.Events.onInput (String.toFloat >> Maybe.withDefault (World.getCameraPosition model) >> SetCameraPosition)
-          --     , Html.Attributes.style "width" "100%"
-          --     ]
-          --     []
-          -- ]
-          Svg.svg
+        [ Svg.svg
             [ Svg.Attributes.class "svg-map"
             , Svg.Attributes.width "1000"
             , Svg.Attributes.height "500"
-            , Svg.Attributes.viewBox "-500 -250 1000 500"
+            , Svg.Attributes.viewBox "-500 -400 1000 500"
             , Svg.Attributes.preserveAspectRatio "xMidYMid slice"
             , Svg.Events.on "wheel" (wheelDecoder ClickedMoveCamera)
-            , Svg.Attributes.style ("background-position: " ++ String.fromFloat -(World.getPlayerPosition model) ++ "px 0")
+            , Svg.Attributes.style ("background-position: " ++ String.fromFloat -(World.getPlayerPosition model.world) ++ "px 0")
             ]
-            [ World.runRenderSystems 600 runRenderSystem model
+            [ World.runRenderSystems 600 runRenderSystem model.world
+            ]
+        , Html.div [ Html.Attributes.class "inventory" ]
+            [ Html.h1 [] [ Html.text "Inventory" ]
+            , Html.div [] (List.map viewInventoryEntity model.inventory)
             ]
         ]
 

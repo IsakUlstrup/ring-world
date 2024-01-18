@@ -216,9 +216,10 @@ runRenderSystems renderRadius runSystem (World world) =
         isInRange radius ( _, ( pos, _ ) ) =
             (relativeDistance (world.player |> Tuple.first) pos world.mapSize |> abs) <= radius
 
-        renderEntity : c -> ( Int, ( Float, a ) ) -> Svg msg
-        renderEntity system ( id, ( pos, entity ) ) =
-            Svg.Keyed.node "g"
+        renderEntity : ( Int, c ) -> ( Int, ( Float, a ) ) -> ( String, Svg msg )
+        renderEntity ( systemId, system ) ( id, ( pos, entity ) ) =
+            ( String.fromInt systemId
+            , Svg.Keyed.node "g"
                 [ Svg.Attributes.class "entity-transform"
                 , Svg.Attributes.transform ("translate(" ++ String.fromFloat (relativeDistance (world.player |> Tuple.first) pos world.mapSize) ++ ", 0)")
                 ]
@@ -226,16 +227,18 @@ runRenderSystems renderRadius runSystem (World world) =
                   , runSystem id pos entity system
                   )
                 ]
+            )
 
         runRenderSystem : ( Int, ( Bool, c ) ) -> ( String, Svg msg )
         runRenderSystem ( id, ( _, data ) ) =
             ( String.fromInt id
-            , Svg.g [ Svg.Attributes.class ("render-system-" ++ String.fromInt id) ]
+            , Svg.Keyed.node "g"
+                [ Svg.Attributes.class ("render-system-" ++ String.fromInt id) ]
                 (World world
                     |> getEntities
                     |> Dict.toList
                     |> List.filter (isInRange renderRadius)
-                    |> List.map (renderEntity data)
+                    |> List.map (renderEntity ( id, data ))
                 )
             )
     in
